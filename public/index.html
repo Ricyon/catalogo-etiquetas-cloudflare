@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#00549f">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Catálogo de Etiquetas | Almoxarifado</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="loader" class="loader">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Carregando catálogo...</p>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <button class="brand" type="button" data-action="home" aria-label="Ir para início">
+        <span class="brand-mark">H</span>
+        <span>
+          <strong>Catálogo de Etiquetas</strong>
+          <small>Almoxarifado · Suprimentos</small>
+        </span>
+      </button>
+
+      <div class="top-actions">
+        <span id="sync-status" class="sync-status">Base local</span>
+        <button id="refresh-btn" class="icon-btn" type="button" title="Atualizar catálogo" aria-label="Atualizar catálogo">↻</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="view-home" class="view active">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="eyebrow">CONSULTA RÁPIDA</span>
+            <h1>Encontre a etiqueta certa em segundos.</h1>
+            <p>Pesquise pelo código INCO ou por qualquer parte da descrição.</p>
+
+            <div class="hero-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="home-search" type="search" placeholder="Ex.: INCO192960 ou HERING BRASIL" autocomplete="off" spellcheck="false">
+              <button id="home-search-btn" type="button">Pesquisar</button>
+            </div>
+
+            <div class="hero-links">
+              <button type="button" data-action="catalog">Ver catálogo completo</button>
+              <span id="home-total"></span>
+            </div>
+          </div>
+
+          <div class="hero-panel" aria-hidden="true">
+            <div class="hero-card mini-card-1"></div>
+            <div class="hero-card mini-card-2"></div>
+            <div class="hero-card mini-card-3"></div>
+            <div class="hero-panel-copy">
+              <strong>Imagem 1 no catálogo</strong>
+              <span>Imagem 1 + Imagem 2 nos detalhes</span>
+            </div>
+          </div>
+        </div>
+
+        <section class="quick-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">ACESSO RÁPIDO</span>
+              <h2>Etiquetas cadastradas</h2>
+            </div>
+            <button class="link-btn" type="button" data-action="catalog">Ver todas →</button>
+          </div>
+          <div id="home-grid" class="grid"></div>
+        </section>
+      </section>
+
+      <section id="view-catalog" class="view">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">CATÁLOGO</span>
+            <h1>Etiquetas</h1>
+            <p>Consulte por código ou descrição.</p>
+          </div>
+          <button class="secondary-btn" type="button" data-action="home">← Voltar ao início</button>
+        </div>
+
+        <div class="catalog-toolbar">
+          <div class="catalog-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="catalog-search" type="search" placeholder="Pesquisar materiais..." autocomplete="off" spellcheck="false">
+            <button id="clear-catalog-search" type="button" aria-label="Limpar busca">×</button>
+          </div>
+
+          <div class="pills" id="category-pills">
+            <button class="pill active" type="button">Todos</button>
+            <button class="pill" type="button">Etiquetas</button>
+          </div>
+        </div>
+
+        <div class="results-row">
+          <span id="results-count"></span>
+          <span class="network-note">As imagens só carregam quando entram na tela.</span>
+        </div>
+
+        <div id="catalog-grid" class="grid"></div>
+
+        <div id="empty-state" class="empty-state" hidden>
+          <strong>Nenhuma etiqueta encontrada.</strong>
+          <span>Tente pesquisar outro código ou descrição.</span>
+        </div>
+
+        <div class="load-more-wrap">
+          <button id="load-more" class="secondary-btn" type="button" hidden>Carregar mais</button>
+        </div>
+      </section>
+
+      <section id="view-details" class="view">
+        <button class="back-link" type="button" data-action="back-catalog">← Voltar ao catálogo</button>
+
+        <div class="detail-layout">
+          <section class="detail-images">
+            <article class="detail-image-card">
+              <span class="image-label">IMAGEM 1</span>
+              <button class="image-button" type="button" data-image-slot="1">
+                <img id="detail-image-1" alt="" decoding="async">
+                <span class="zoom-hint">Toque para ampliar</span>
+              </button>
+            </article>
+
+            <article class="detail-image-card">
+              <span class="image-label">IMAGEM 2</span>
+              <button class="image-button" type="button" data-image-slot="2">
+                <img id="detail-image-2" alt="" decoding="async">
+                <span class="zoom-hint">Toque para ampliar</span>
+              </button>
+            </article>
+          </section>
+
+          <section class="detail-info">
+            <span class="badge">Etiqueta</span>
+            <h1 id="detail-code">—</h1>
+            <p id="detail-description">—</p>
+
+            <dl class="detail-list">
+              <div><dt>Unidade de medida</dt><dd id="detail-um">—</dd></div>
+              <div><dt>Data de inclusão</dt><dd id="detail-date">—</dd></div>
+              <div><dt>Responsável</dt><dd id="detail-owner">—</dd></div>
+            </dl>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Catálogo de Etiquetas · Almoxarifado</span>
+      <span id="footer-status">Base preparada para uso offline.</span>
+    </footer>
+  </div>
+
+  <div id="image-modal" class="modal" hidden>
+    <button id="modal-close" class="modal-close" type="button" aria-label="Fechar">×</button>
+    <img id="modal-image" alt="Imagem ampliada">
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/bootstrap.js"></script>
+  <script src="/app.js" defer></script>
+</body>
+</html>
