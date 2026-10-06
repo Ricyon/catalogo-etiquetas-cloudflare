@@ -1,20 +1,18 @@
-const CACHE_KEY = "catalogo-insumos:data:v4";
-const PAGE_SIZE = 32;
+const CACHE_KEY = "catalogo-insumos:data:v5";
+const PAGE_SIZE = 36;
 
 const state = {
   items: [],
   filtered: [],
   categories: [],
-  activeCategory: "",
   current: null,
-  rendered: 0,
-  previousView: "catalog"
+  rendered: 0
 };
 
 const PLACEHOLDER = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="540" viewBox="0 0 720 540">
-    <rect width="720" height="540" fill="#f2f5f7"/>
-    <g fill="none" stroke="#c2ccd5" stroke-width="5">
+    <rect width="720" height="540" fill="#f3f5f7"/>
+    <g fill="none" stroke="#c6d0d9" stroke-width="5">
       <rect x="242" y="148" width="236" height="188" rx="12"/>
       <circle cx="306" cy="210" r="24"/>
       <path d="M264 316l82-82 48 48 38-38 45 45"/>
@@ -53,16 +51,9 @@ async function init() {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
-    const actionElement = event.target.closest("[data-action]");
-    const action = actionElement?.dataset.action;
+    const action = event.target.closest("[data-action]")?.dataset.action;
     if (action === "home") openHome();
     if (action === "catalog") openCatalog();
-    if (action === "back-catalog") openCatalog(true);
-
-    const categoryElement = event.target.closest("[data-category]");
-    if (categoryElement) {
-      selectCategory(categoryElement.dataset.category || "");
-    }
   });
 
   byId("home-search-btn").addEventListener("click", executeHomeSearch);
@@ -71,6 +62,8 @@ function bindEvents() {
   });
 
   byId("catalog-search").addEventListener("input", filterCatalog);
+  byId("category-filter").addEventListener("change", filterCatalog);
+
   byId("clear-catalog-search").addEventListener("click", () => {
     byId("catalog-search").value = "";
     filterCatalog();
@@ -94,17 +87,24 @@ function bindEvents() {
     }
   });
 
-  document.querySelectorAll("[data-image-slot]").forEach((button) => {
-    button.addEventListener("click", () => openModal(Number(button.dataset.imageSlot)));
+  byId("detail-close").addEventListener("click", closeDetails);
+  byId("detail-modal").addEventListener("click", (event) => {
+    if (event.target.id === "detail-modal") closeDetails();
   });
 
-  byId("modal-close").addEventListener("click", closeModal);
+  document.querySelectorAll("[data-image-slot]").forEach((button) => {
+    button.addEventListener("click", () => openImageModal(Number(button.dataset.imageSlot)));
+  });
+
+  byId("modal-close").addEventListener("click", closeImageModal);
   byId("image-modal").addEventListener("click", (event) => {
-    if (event.target.id === "image-modal") closeModal();
+    if (event.target.id === "image-modal") closeImageModal();
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeModal();
+    if (event.key !== "Escape") return;
+    if (!byId("image-modal").hidden) closeImageModal();
+    else if (!byId("detail-modal").hidden) closeDetails();
   });
 }
 
@@ -153,157 +153,97 @@ function applyPayload(payload, label) {
   state.categories = [...new Set(state.items.map((item) => item.categoria).filter(Boolean))]
     .sort((a,b) => a.localeCompare(b, "pt-BR", {sensitivity:"base"}));
 
-  if (state.activeCategory && !state.categories.some((c) => normalize(c) === normalize(state.activeCategory))) {
-    state.activeCategory = "";
-  }
+  byId("home-total").textContent =
+    `${state.items.length} ${state.items.length === 1 ? "material" : "materiais"}`;
 
-  byId("home-total").textContent = `${state.items.length} ${state.items.length === 1 ? "material cadastrado" : "materiais cadastrados"}`;
-  byId("footer-status").textContent = `${label} · ${state.items.length} materiais · ${state.categories.length} ${state.categories.length === 1 ? "categoria" : "categorias"}`;
+  byId("home-categories-count").textContent =
+    `${state.categories.length} ${state.categories.length === 1 ? "categoria" : "categorias"}`;
 
-  renderCategories();
-  renderHomeCards();
+  byId("footer-status").textContent =
+    `${label} · ${state.items.length} materiais`;
+
+  renderCategoryFilter();
 
   if (isViewActive("catalog")) filterCatalog();
 
-  if (state.current) {
+  if (state.current && !byId("detail-modal").hidden) {
     const updated = state.items.find((item) => item.codigo === state.current.codigo);
-    if (updated && isViewActive("details")) showDetails(updated, false);
+    if (updated) showDetails(updated);
   }
 }
 
-function renderCategories() {
-  const home = byId("home-categories");
-  const pills = byId("category-pills");
-  home.innerHTML = "";
-  pills.innerHTML = "";
+function renderCategoryFilter() {
+  const select = byId("category-filter");
+  const current = select.value;
 
-  home.appendChild(createCategoryCard("", "Todos os materiais", state.items.length, true));
+  select.innerHTML = '<option value="">Todas as categorias</option>';
 
   for (const category of state.categories) {
-    const count = state.items.filter((item) => normalize(item.categoria) === normalize(category)).length;
-    home.appendChild(createCategoryCard(category, category, count, false));
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    select.appendChild(option);
   }
 
-  pills.appendChild(createCategoryPill("", "Todos"));
-
-  for (const category of state.categories) {
-    pills.appendChild(createCategoryPill(category, category));
-  }
-}
-
-function createCategoryCard(value, label, count, isAll) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `category-card${isAll ? " category-card-all" : ""}`;
-  button.dataset.category = value;
-  button.setAttribute("aria-label", `Abrir categoria ${label}`);
-
-  const icon = document.createElement("span");
-  icon.className = "category-icon";
-  icon.textContent = categoryIcon(label);
-
-  const title = document.createElement("strong");
-  title.textContent = label;
-
-  const meta = document.createElement("small");
-  meta.textContent = `${count} ${count === 1 ? "material" : "materiais"}`;
-
-  button.append(icon, title, meta);
-  return button;
-}
-
-function createCategoryPill(value, label) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "pill";
-  if (normalize(value) === normalize(state.activeCategory)) button.classList.add("active");
-  button.dataset.category = value;
-  button.textContent = label;
-  return button;
-}
-
-function categoryIcon(label) {
-  const key = normalize(label);
-  if (!key || key.includes("todos")) return "▦";
-  if (key.includes("etiquet")) return "▤";
-  if (key.includes("elast")) return "⌁";
-  if (key.includes("linha") || key.includes("fio")) return "∿";
-  if (key.includes("fita")) return "▬";
-  if (key.includes("bot")) return "●";
-  if (key.includes("embal")) return "□";
-  return "◇";
-}
-
-function renderHomeCards() {
-  const grid = byId("home-grid");
-  grid.innerHTML = "";
-  state.items.slice(0, 8).forEach((item) => grid.appendChild(createCard(item, true)));
+  if (state.categories.includes(current)) select.value = current;
 }
 
 function executeHomeSearch() {
   const raw = byId("home-search").value.trim();
-  if (!raw) return openCatalog();
+
+  if (!raw) {
+    openCatalog();
+    return;
+  }
 
   const query = normalize(raw);
-  const exact = state.items.find((item) => normalize(item.codigo) === query);
 
+  const exact = state.items.find((item) => normalize(item.codigo) === query);
   if (exact) {
     showDetails(exact);
     return;
   }
 
-  state.activeCategory = "";
   byId("catalog-search").value = raw;
+  byId("category-filter").value = "";
   openCatalog(true);
 }
 
 function openHome() {
   switchView("home");
+  byId("home-search").focus({preventScroll:true});
   window.scrollTo({top:0,behavior:"instant"});
 }
 
 function openCatalog(keepSearch = false) {
-  if (!keepSearch) byId("catalog-search").value = "";
-  switchView("catalog");
-  renderCategories();
-  filterCatalog();
-  window.scrollTo({top:0,behavior:"instant"});
-}
+  if (!keepSearch) {
+    byId("catalog-search").value = "";
+    byId("category-filter").value = "";
+  }
 
-function selectCategory(category) {
-  state.activeCategory = category || "";
-  byId("catalog-search").value = "";
   switchView("catalog");
-  renderCategories();
   filterCatalog();
   window.scrollTo({top:0,behavior:"instant"});
 }
 
 function filterCatalog() {
   const query = normalize(byId("catalog-search").value);
-  const category = normalize(state.activeCategory);
+  const selectedCategory = normalize(byId("category-filter").value);
 
   state.filtered = state.items.filter((item) => {
-    const matchesCategory = !category || normalize(item.categoria) === category;
+    const matchesCategory =
+      !selectedCategory || normalize(item.categoria) === selectedCategory;
+
     if (!matchesCategory) return false;
     if (!query) return true;
 
     return normalize(item.codigo).includes(query)
-      || normalize(item.descricao).includes(query)
-      || normalize(item.categoria).includes(query);
-  });
-
-  byId("catalog-title").textContent = state.activeCategory || "Todos os materiais";
-  byId("catalog-subtitle").textContent = state.activeCategory
-    ? `Materiais da categoria ${state.activeCategory}. Pesquise por código ou descrição.`
-    : "Consulte por código, descrição ou categoria.";
-
-  document.querySelectorAll("#category-pills .pill").forEach((pill) => {
-    pill.classList.toggle("active", normalize(pill.dataset.category || "") === category);
+      || normalize(item.descricao).includes(query);
   });
 
   state.rendered = 0;
   byId("catalog-grid").innerHTML = "";
+
   byId("results-count").textContent =
     `${state.filtered.length} ${state.filtered.length === 1 ? "material encontrado" : "materiais encontrados"}`;
 
@@ -319,7 +259,7 @@ function renderNextPage() {
   const fragment = document.createDocumentFragment();
 
   for (let i = state.rendered; i < end; i++) {
-    fragment.appendChild(createCard(state.filtered[i], false));
+    fragment.appendChild(createCard(state.filtered[i]));
   }
 
   grid.appendChild(fragment);
@@ -332,7 +272,7 @@ function updateLoadMore() {
   byId("load-more").hidden = state.rendered >= state.filtered.length;
 }
 
-function createCard(item, homeCard) {
+function createCard(item) {
   const card = document.createElement("article");
   card.className = "card";
   card.tabIndex = 0;
@@ -383,6 +323,7 @@ function createCard(item, homeCard) {
   card.append(imageWrap, body);
 
   const open = () => showDetails(item);
+
   card.addEventListener("click", open);
   card.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -391,13 +332,11 @@ function createCard(item, homeCard) {
     }
   });
 
-  if (homeCard) setTimeout(() => observePendingImages(), 0);
   return card;
 }
 
-function showDetails(item, changeView = true) {
+function showDetails(item) {
   state.current = item;
-  state.previousView = isViewActive("home") ? "home" : "catalog";
 
   byId("detail-category").textContent = item.categoria || "Material";
   byId("detail-category-text").textContent = item.categoria || "—";
@@ -410,17 +349,24 @@ function showDetails(item, changeView = true) {
   setDetailImage(1, item.imagem1, item.codigo, item.categoria);
   setDetailImage(2, item.imagem2, item.codigo, item.categoria);
 
-  if (changeView) {
-    switchView("details");
-    window.scrollTo({top:0,behavior:"instant"});
-  }
+  byId("detail-modal").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function closeDetails() {
+  byId("detail-modal").hidden = true;
+  document.body.style.overflow = "";
 }
 
 function setDetailImage(slot, id, code, category) {
   const image = byId(`detail-image-${slot}`);
   const button = document.querySelector(`[data-image-slot="${slot}"]`);
+
   image.dataset.fileId = id || "";
-  image.alt = id ? `Imagem ${slot} de ${category || "material"} ${code}` : "Imagem não disponível";
+  image.alt = id
+    ? `Imagem ${slot} de ${category || "material"} ${code}`
+    : "Imagem não disponível";
+
   image.src = id ? imageUrl(id, detailImageWidth()) : PLACEHOLDER;
   image.classList.toggle("img-placeholder", !id);
   button.disabled = !id;
@@ -434,38 +380,42 @@ function setDetailImage(slot, id, code, category) {
   };
 }
 
-function openModal(slot) {
+function openImageModal(slot) {
   const source = byId(`detail-image-${slot}`);
   const id = source.dataset.fileId;
   if (!id) return;
+
   byId("modal-image").src = imageUrl(id, modalImageWidth());
   byId("modal-image").alt = source.alt;
   byId("image-modal").hidden = false;
-  document.body.style.overflow = "hidden";
 }
 
-function closeModal() {
+function closeImageModal() {
   const modal = byId("image-modal");
   if (modal.hidden) return;
+
   modal.hidden = true;
   byId("modal-image").src = "";
-  document.body.style.overflow = "";
 }
 
 function switchView(name) {
   document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
   byId(`view-${name}`).classList.add("active");
+
+  byId("nav-home").classList.toggle("active", name === "home");
+  byId("nav-catalog").classList.toggle("active", name === "catalog");
 }
 
 function configureLazyImages() {
   if (!("IntersectionObserver" in window)) return;
+
   imageObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       loadLazyImage(entry.target);
       imageObserver.unobserve(entry.target);
     }
-  }, {rootMargin:"280px 0px"});
+  }, {rootMargin:"260px 0px"});
 }
 
 function observePendingImages() {
@@ -478,6 +428,7 @@ function observePendingImages() {
 function loadLazyImage(image) {
   const src = image.dataset.src;
   if (!src) return;
+
   image.src = src;
   image.removeAttribute("data-src");
 }
@@ -523,15 +474,14 @@ function readCache() {
 function showApp() {
   byId("loader").hidden = true;
   byId("app").hidden = false;
-  observePendingImages();
 }
 
 function showFatal(message) {
   byId("loader").innerHTML = `
     <div style="max-width:560px;padding:28px;text-align:center">
-      <h2 style="margin:0 0 10px;color:#172033">Não foi possível abrir o catálogo</h2>
+      <h2 style="margin:0 0 10px;color:#182230">Não foi possível abrir o catálogo</h2>
       <p style="color:#667085;line-height:1.55">${escapeHtml(message)}</p>
-      <button onclick="location.reload()" style="border:0;border-radius:10px;padding:12px 18px;background:#00549f;color:#fff;font-weight:700;cursor:pointer">
+      <button onclick="location.reload()" style="border:0;border-radius:9px;padding:12px 18px;background:#00549f;color:#fff;font-weight:700;cursor:pointer">
         Tentar novamente
       </button>
     </div>`;
@@ -541,6 +491,7 @@ function toast(message) {
   const element = byId("toast");
   element.textContent = message;
   element.hidden = false;
+
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => element.hidden = true, 2800);
 }
@@ -556,12 +507,15 @@ function normalize(value) {
 function formatSheetDate(value) {
   const text = String(value || "").trim();
   if (!text) return "";
+
   const match = text.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
+
   if (match) {
     const day = String(Number(match[3])).padStart(2,"0");
     const month = String(Number(match[2]) + 1).padStart(2,"0");
     return `${day}/${month}/${match[1]}`;
   }
+
   return text;
 }
 
