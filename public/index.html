@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#00549f">
   <meta name="robots" content="noindex,nofollow">
-  <title>Catálogo de Etiquetas | Almoxarifado</title>
+  <title>Catálogo de Insumos | Almoxarifado</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/categories.css">
 </head>
 <body>
   <div id="loader" class="loader">
@@ -20,7 +21,7 @@
       <button class="brand" type="button" data-action="home" aria-label="Ir para início">
         <span class="brand-mark">H</span>
         <span>
-          <strong>Catálogo de Etiquetas</strong>
+          <strong>Catálogo de Insumos</strong>
           <small>Almoxarifado · Suprimentos</small>
         </span>
       </button>
@@ -36,12 +37,12 @@
         <div class="hero">
           <div class="hero-copy">
             <span class="eyebrow">CONSULTA RÁPIDA</span>
-            <h1>Encontre a etiqueta certa em segundos.</h1>
-            <p>Pesquise pelo código INCO ou por qualquer parte da descrição.</p>
+            <h1>Encontre o material certo em segundos.</h1>
+            <p>Pesquise pelo código, descrição ou categoria do insumo.</p>
 
             <div class="hero-search">
               <span aria-hidden="true">⌕</span>
-              <input id="home-search" type="search" placeholder="Ex.: INCO192960 ou HERING BRASIL" autocomplete="off" spellcheck="false">
+              <input id="home-search" type="search" placeholder="Ex.: INCO192960, etiqueta ou HERING BRASIL" autocomplete="off" spellcheck="false">
               <button id="home-search-btn" type="button">Pesquisar</button>
             </div>
 
@@ -56,8 +57,8 @@
             <div class="hero-card mini-card-2"></div>
             <div class="hero-card mini-card-3"></div>
             <div class="hero-panel-copy">
-              <strong>Imagem 1 no catálogo</strong>
-              <span>Imagem 1 + Imagem 2 nos detalhes</span>
+              <strong>Um catálogo para todos os insumos</strong>
+              <span>Novas categorias aparecem automaticamente conforme a base cresce.</span>
             </div>
           </div>
         </div>
@@ -65,10 +66,21 @@
         <section class="quick-section">
           <div class="section-head">
             <div>
-              <span class="eyebrow">ACESSO RÁPIDO</span>
-              <h2>Etiquetas cadastradas</h2>
+              <span class="eyebrow">CATEGORIAS</span>
+              <h2>Tipos de materiais</h2>
             </div>
-            <button class="link-btn" type="button" data-action="catalog">Ver todas →</button>
+            <button class="link-btn" type="button" data-action="catalog">Ver todos →</button>
+          </div>
+          <div id="home-categories" class="category-grid"></div>
+        </section>
+
+        <section class="quick-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">MATERIAIS</span>
+              <h2>Materiais cadastrados</h2>
+            </div>
+            <button class="link-btn" type="button" data-action="catalog">Abrir catálogo →</button>
           </div>
           <div id="home-grid" class="grid"></div>
         </section>
@@ -78,8 +90,8 @@
         <div class="page-head">
           <div>
             <span class="eyebrow">CATÁLOGO</span>
-            <h1>Etiquetas</h1>
-            <p>Consulte por código ou descrição.</p>
+            <h1 id="catalog-title">Todos os materiais</h1>
+            <p id="catalog-subtitle">Consulte por código, descrição ou categoria.</p>
           </div>
           <button class="secondary-btn" type="button" data-action="home">← Voltar ao início</button>
         </div>
@@ -91,10 +103,7 @@
             <button id="clear-catalog-search" type="button" aria-label="Limpar busca">×</button>
           </div>
 
-          <div class="pills" id="category-pills">
-            <button class="pill active" type="button">Todos</button>
-            <button class="pill" type="button">Etiquetas</button>
-          </div>
+          <div class="pills" id="category-pills" aria-label="Filtrar por categoria"></div>
         </div>
 
         <div class="results-row">
@@ -105,8 +114,8 @@
         <div id="catalog-grid" class="grid"></div>
 
         <div id="empty-state" class="empty-state" hidden>
-          <strong>Nenhuma etiqueta encontrada.</strong>
-          <span>Tente pesquisar outro código ou descrição.</span>
+          <strong>Nenhum material encontrado.</strong>
+          <span>Tente outro código, descrição ou categoria.</span>
         </div>
 
         <div class="load-more-wrap">
@@ -137,11 +146,12 @@
           </section>
 
           <section class="detail-info">
-            <span class="badge">Etiqueta</span>
+            <span id="detail-category" class="badge">Material</span>
             <h1 id="detail-code">—</h1>
             <p id="detail-description">—</p>
 
             <dl class="detail-list">
+              <div><dt>Categoria</dt><dd id="detail-category-text">—</dd></div>
               <div><dt>Unidade de medida</dt><dd id="detail-um">—</dd></div>
               <div><dt>Data de inclusão</dt><dd id="detail-date">—</dd></div>
               <div><dt>Responsável</dt><dd id="detail-owner">—</dd></div>
@@ -152,7 +162,7 @@
     </main>
 
     <footer>
-      <span>Catálogo de Etiquetas · Almoxarifado</span>
+      <span>Catálogo de Insumos · Almoxarifado</span>
       <span id="footer-status">Base preparada para uso offline.</span>
     </footer>
   </div>
