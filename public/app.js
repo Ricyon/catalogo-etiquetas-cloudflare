@@ -1,9 +1,11 @@
-const CACHE_KEY = "catalogo-etiquetas:data:v3";
+const CACHE_KEY = "catalogo-insumos:data:v4";
 const PAGE_SIZE = 32;
 
 const state = {
   items: [],
   filtered: [],
+  categories: [],
+  activeCategory: "",
   current: null,
   rendered: 0,
   previousView: "catalog"
@@ -51,11 +53,16 @@ async function init() {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
-    const action = event.target.closest("[data-action]")?.dataset.action;
-    if (!action) return;
+    const actionElement = event.target.closest("[data-action]");
+    const action = actionElement?.dataset.action;
     if (action === "home") openHome();
     if (action === "catalog") openCatalog();
     if (action === "back-catalog") openCatalog(true);
+
+    const categoryElement = event.target.closest("[data-category]");
+    if (categoryElement) {
+      selectCategory(categoryElement.dataset.category || "");
+    }
   });
 
   byId("home-search-btn").addEventListener("click", executeHomeSearch);
@@ -95,16 +102,9 @@ function bindEvents() {
   byId("image-modal").addEventListener("click", (event) => {
     if (event.target.id === "image-modal") closeModal();
   });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeModal();
-  });
-
-  document.querySelectorAll(".pill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      document.querySelectorAll(".pill").forEach((p) => p.classList.remove("active"));
-      pill.classList.add("active");
-      filterCatalog();
-    });
   });
 }
 
@@ -118,10 +118,12 @@ async function refreshCatalog(fresh) {
       cache: fresh ? "no-store" : "default",
       signal: controller.signal
     });
+
     const payload = await response.json();
     if (!response.ok || !payload.success) {
       throw new Error(payload.error || "Falha ao carregar catálogo.");
     }
+
     writeCache(payload);
     applyPayload(payload, "Base online");
     setSyncStatus("Base online", true);
@@ -139,6 +141,7 @@ function applyPayload(payload, label) {
     .map((item) => ({
       codigo: String(item.codigo || "").trim(),
       descricao: String(item.descricao || "Sem descrição cadastrada").trim(),
+      categoria: String(item.categoria || "Etiquetas").trim() || "Sem categoria",
       um: String(item.um || "").trim(),
       data: formatSheetDate(item.data),
       responsavel: String(item.responsavel || "").trim(),
@@ -147,16 +150,88 @@ function applyPayload(payload, label) {
     }))
     .sort((a,b) => a.codigo.localeCompare(b.codigo, "pt-BR", {numeric:true,sensitivity:"base"}));
 
-  byId("home-total").textContent = `${state.items.length} ${state.items.length === 1 ? "material cadastrado" : "materiais cadastrados"}`;
-  byId("footer-status").textContent = `${label} · ${state.items.length} materiais`;
+  state.categories = [...new Set(state.items.map((item) => item.categoria).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, "pt-BR", {sensitivity:"base"}));
 
+  if (state.activeCategory && !state.categories.some((c) => normalize(c) === normalize(state.activeCategory))) {
+    state.activeCategory = "";
+  }
+
+  byId("home-total").textContent = `${state.items.length} ${state.items.length === 1 ? "material cadastrado" : "materiais cadastrados"}`;
+  byId("footer-status").textContent = `${label} · ${state.items.length} materiais · ${state.categories.length} ${state.categories.length === 1 ? "categoria" : "categorias"}`;
+
+  renderCategories();
   renderHomeCards();
+
   if (isViewActive("catalog")) filterCatalog();
 
   if (state.current) {
     const updated = state.items.find((item) => item.codigo === state.current.codigo);
     if (updated && isViewActive("details")) showDetails(updated, false);
   }
+}
+
+function renderCategories() {
+  const home = byId("home-categories");
+  const pills = byId("category-pills");
+  home.innerHTML = "";
+  pills.innerHTML = "";
+
+  home.appendChild(createCategoryCard("", "Todos os materiais", state.items.length, true));
+
+  for (const category of state.categories) {
+    const count = state.items.filter((item) => normalize(item.categoria) === normalize(category)).length;
+    home.appendChild(createCategoryCard(category, category, count, false));
+  }
+
+  pills.appendChild(createCategoryPill("", "Todos"));
+
+  for (const category of state.categories) {
+    pills.appendChild(createCategoryPill(category, category));
+  }
+}
+
+function createCategoryCard(value, label, count, isAll) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `category-card${isAll ? " category-card-all" : ""}`;
+  button.dataset.category = value;
+  button.setAttribute("aria-label", `Abrir categoria ${label}`);
+
+  const icon = document.createElement("span");
+  icon.className = "category-icon";
+  icon.textContent = categoryIcon(label);
+
+  const title = document.createElement("strong");
+  title.textContent = label;
+
+  const meta = document.createElement("small");
+  meta.textContent = `${count} ${count === 1 ? "material" : "materiais"}`;
+
+  button.append(icon, title, meta);
+  return button;
+}
+
+function createCategoryPill(value, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pill";
+  if (normalize(value) === normalize(state.activeCategory)) button.classList.add("active");
+  button.dataset.category = value;
+  button.textContent = label;
+  return button;
+}
+
+function categoryIcon(label) {
+  const key = normalize(label);
+  if (!key || key.includes("todos")) return "▦";
+  if (key.includes("etiquet")) return "▤";
+  if (key.includes("elast")) return "⌁";
+  if (key.includes("linha") || key.includes("fio")) return "∿";
+  if (key.includes("fita")) return "▬";
+  if (key.includes("bot")) return "●";
+  if (key.includes("embal")) return "□";
+  return "◇";
 }
 
 function renderHomeCards() {
@@ -177,9 +252,9 @@ function executeHomeSearch() {
     return;
   }
 
+  state.activeCategory = "";
   byId("catalog-search").value = raw;
-  openCatalog();
-  filterCatalog();
+  openCatalog(true);
 }
 
 function openHome() {
@@ -188,19 +263,43 @@ function openHome() {
 }
 
 function openCatalog(keepSearch = false) {
-  if (!keepSearch && !byId("catalog-search").value) {
-    byId("catalog-search").value = "";
-  }
+  if (!keepSearch) byId("catalog-search").value = "";
   switchView("catalog");
+  renderCategories();
+  filterCatalog();
+  window.scrollTo({top:0,behavior:"instant"});
+}
+
+function selectCategory(category) {
+  state.activeCategory = category || "";
+  byId("catalog-search").value = "";
+  switchView("catalog");
+  renderCategories();
   filterCatalog();
   window.scrollTo({top:0,behavior:"instant"});
 }
 
 function filterCatalog() {
   const query = normalize(byId("catalog-search").value);
+  const category = normalize(state.activeCategory);
+
   state.filtered = state.items.filter((item) => {
+    const matchesCategory = !category || normalize(item.categoria) === category;
+    if (!matchesCategory) return false;
     if (!query) return true;
-    return normalize(item.codigo).includes(query) || normalize(item.descricao).includes(query);
+
+    return normalize(item.codigo).includes(query)
+      || normalize(item.descricao).includes(query)
+      || normalize(item.categoria).includes(query);
+  });
+
+  byId("catalog-title").textContent = state.activeCategory || "Todos os materiais";
+  byId("catalog-subtitle").textContent = state.activeCategory
+    ? `Materiais da categoria ${state.activeCategory}. Pesquise por código ou descrição.`
+    : "Consulte por código, descrição ou categoria.";
+
+  document.querySelectorAll("#category-pills .pill").forEach((pill) => {
+    pill.classList.toggle("active", normalize(pill.dataset.category || "") === category);
   });
 
   state.rendered = 0;
@@ -244,7 +343,7 @@ function createCard(item, homeCard) {
   imageWrap.className = "card-image";
 
   const image = document.createElement("img");
-  image.alt = `Etiqueta ${item.codigo}`;
+  image.alt = `${item.categoria} ${item.codigo}`;
   image.src = PLACEHOLDER;
   image.decoding = "async";
   image.loading = "lazy";
@@ -270,7 +369,7 @@ function createCard(item, homeCard) {
 
   const badge = document.createElement("span");
   badge.className = "badge";
-  badge.textContent = "Etiqueta";
+  badge.textContent = item.categoria;
 
   const code = document.createElement("div");
   code.className = "card-code";
@@ -300,14 +399,16 @@ function showDetails(item, changeView = true) {
   state.current = item;
   state.previousView = isViewActive("home") ? "home" : "catalog";
 
+  byId("detail-category").textContent = item.categoria || "Material";
+  byId("detail-category-text").textContent = item.categoria || "—";
   byId("detail-code").textContent = item.codigo;
   byId("detail-description").textContent = item.descricao || "Sem descrição cadastrada";
   byId("detail-um").textContent = item.um || "—";
   byId("detail-date").textContent = item.data || "—";
   byId("detail-owner").textContent = item.responsavel || "—";
 
-  setDetailImage(1, item.imagem1, item.codigo);
-  setDetailImage(2, item.imagem2, item.codigo);
+  setDetailImage(1, item.imagem1, item.codigo, item.categoria);
+  setDetailImage(2, item.imagem2, item.codigo, item.categoria);
 
   if (changeView) {
     switchView("details");
@@ -315,11 +416,11 @@ function showDetails(item, changeView = true) {
   }
 }
 
-function setDetailImage(slot, id, code) {
+function setDetailImage(slot, id, code, category) {
   const image = byId(`detail-image-${slot}`);
   const button = document.querySelector(`[data-image-slot="${slot}"]`);
   image.dataset.fileId = id || "";
-  image.alt = id ? `Imagem ${slot} da etiqueta ${code}` : "Imagem não disponível";
+  image.alt = id ? `Imagem ${slot} de ${category || "material"} ${code}` : "Imagem não disponível";
   image.src = id ? imageUrl(id, detailImageWidth()) : PLACEHOLDER;
   image.classList.toggle("img-placeholder", !id);
   button.disabled = !id;
@@ -388,9 +489,11 @@ function imageUrl(id, width) {
 function cardImageWidth() {
   return window.matchMedia("(max-width:700px)").matches ? 320 : 480;
 }
+
 function detailImageWidth() {
   return window.matchMedia("(max-width:700px)").matches ? 720 : 960;
 }
+
 function modalImageWidth() {
   return window.matchMedia("(max-width:700px)").matches ? 960 : 1600;
 }
