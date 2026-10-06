@@ -9,6 +9,7 @@ const SECURITY_HEADERS = {
 const ALIASES = {
   codigo: ["material", "codigo", "cod", "sku"],
   descricao: ["descricao", "descricaomaterial", "texto breve material", "textobrevematerial"],
+  categoria: ["categoria", "tipo", "tipomaterial", "tipodeinsumo", "grupomaterial"],
   um: ["um", "unidademedida", "unidadedemedida"],
   data: ["data", "datainclusao", "datadeinclusao"],
   responsavel: ["responsavel", "responsável"],
@@ -26,8 +27,9 @@ export default {
       if (url.pathname === "/api/health") {
         return json({
           success: true,
-          app: "Catálogo de Etiquetas",
-          sheet: env.GOOGLE_SHEET_NAME || "Base etiquetas"
+          app: "Catálogo de Insumos",
+          preferredSheet: env.GOOGLE_SHEET_NAME || "Base materiais",
+          fallbackSheet: env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas"
         }, 200, { "cache-control": "no-store" });
       }
 
@@ -59,7 +61,8 @@ export default {
 async function catalogResponse(request, env, ctx) {
   const url = new URL(request.url);
   const sheetId = String(env.GOOGLE_SHEET_ID || "").trim();
-  const sheetName = String(env.GOOGLE_SHEET_NAME || "Base etiquetas").trim();
+  const preferredSheet = String(env.GOOGLE_SHEET_NAME || "Base materiais").trim();
+  const fallbackSheet = String(env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas").trim();
   const ttl = clampInt(env.CATALOG_CACHE_SECONDS, 30, 600, 120);
   const fresh = url.searchParams.get("fresh") === "1";
 
@@ -68,65 +71,27 @@ async function catalogResponse(request, env, ctx) {
   }
 
   const cache = caches.default;
-  const cacheKey = new Request(`${url.origin}/__edge/catalogo-v1`, {method:"GET"});
+  const cacheKey = new Request(`${url.origin}/__edge/catalogo-insumos-v1`, {method:"GET"});
 
   if (!fresh) {
     const hit = await cache.match(cacheKey);
     if (hit) return hit;
   }
 
-  const googleUrl =
-    `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}` +
-    `/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
+  const candidates = [...new Set([preferredSheet, fallbackSheet].filter(Boolean))];
+  const loaded = await loadCatalogSheet(sheetId, candidates);
 
-  const upstream = await fetch(googleUrl, {
-    redirect:"follow",
-    headers:{
-      "accept":"application/json,text/plain,*/*",
-      "user-agent":"CatalogoEtiquetasCloudflare/1.0"
-    }
-  });
-
-  const text = await upstream.text();
-
-  if (!upstream.ok || /^\s*</.test(text)) {
+  if (!loaded) {
     return json({
       success:false,
-      error:"Não foi possível ler a planilha. Confirme se ela está acessível para leitura por link."
+      error:"Não foi possível ler a base de materiais. Confirme se a planilha está pública para leitura e se existe a aba Base materiais (ou Base etiquetas durante a migração)."
     }, 502, {"cache-control":"no-store"});
   }
 
-  const payload = parseGviz(text);
-  if (payload.status === "error") {
-    const message = payload.errors?.[0]?.detailed_message || payload.errors?.[0]?.message || "Erro retornado pelo Google Sheets.";
-    return json({success:false,error:message},502,{"cache-control":"no-store"});
-  }
-
-  const table = payload.table;
-  if (!table?.cols || !table?.rows) {
-    return json({success:false,error:"A aba não retornou dados válidos."},502,{"cache-control":"no-store"});
-  }
-
-  const headers = table.cols.map((col,index)=>({
-    index,
-    raw:String(col?.label || col?.id || `coluna${index+1}`).trim(),
-    key:normalize(col?.label || col?.id || `coluna${index+1}`)
-  }));
-
-  const idx = {};
-  for (const [key, aliases] of Object.entries(ALIASES)) {
-    idx[key] = findColumn(headers, aliases);
-  }
-
-  if (idx.codigo < 0 || idx.descricao < 0) {
-    return json({
-      success:false,
-      error:"Não encontrei as colunas Material e Descrição na aba Base etiquetas.",
-      headers:headers.map(h=>h.raw)
-    }, 422, {"cache-control":"no-store"});
-  }
-
+  const { table, sheetName, idx } = loaded;
+  const defaultCategory = normalize(sheetName).includes("etiqueta") ? "Etiquetas" : "Sem categoria";
   const data = [];
+
   for (const row of table.rows) {
     const cells = Array.isArray(row?.c) ? row.c : [];
     const codigo = cellText(cells[idx.codigo]);
@@ -135,6 +100,7 @@ async function catalogResponse(request, env, ctx) {
     data.push({
       codigo,
       descricao: idx.descricao >= 0 ? cellText(cells[idx.descricao]) : "",
+      categoria: idx.categoria >= 0 ? (cellText(cells[idx.categoria]) || defaultCategory) : defaultCategory,
       um: idx.um >= 0 ? cellText(cells[idx.um]) : "",
       data: idx.data >= 0 ? cellText(cells[idx.data]) : "",
       responsavel: idx.responsavel >= 0 ? cellText(cells[idx.responsavel]) : "",
@@ -145,9 +111,13 @@ async function catalogResponse(request, env, ctx) {
 
   data.sort((a,b)=>a.codigo.localeCompare(b.codigo,"pt-BR",{numeric:true,sensitivity:"base"}));
 
+  const categories = [...new Set(data.map(item => item.categoria).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,"pt-BR",{sensitivity:"base"}));
+
   const response = json({
     success:true,
     total:data.length,
+    categories,
     data,
     source:{
       sheetName,
@@ -159,6 +129,48 @@ async function catalogResponse(request, env, ctx) {
 
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
+}
+
+async function loadCatalogSheet(sheetId, candidates) {
+  for (const sheetName of candidates) {
+    try {
+      const googleUrl =
+        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}` +
+        `/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
+
+      const upstream = await fetch(googleUrl, {
+        redirect:"follow",
+        headers:{
+          "accept":"application/json,text/plain,*/*",
+          "user-agent":"CatalogoInsumosCloudflare/1.0"
+        }
+      });
+
+      const text = await upstream.text();
+      if (!upstream.ok || /^\s*</.test(text)) continue;
+
+      const payload = parseGviz(text);
+      if (payload.status === "error" || !payload.table?.cols || !payload.table?.rows) continue;
+
+      const table = payload.table;
+      const headers = table.cols.map((col,index)=>({
+        index,
+        raw:String(col?.label || col?.id || `coluna${index+1}`).trim(),
+        key:normalize(col?.label || col?.id || `coluna${index+1}`)
+      }));
+
+      const idx = {};
+      for (const [key, aliases] of Object.entries(ALIASES)) {
+        idx[key] = findColumn(headers, aliases);
+      }
+
+      if (idx.codigo < 0 || idx.descricao < 0) continue;
+      return { table, sheetName, idx };
+    } catch {
+      // Tenta a próxima aba configurada.
+    }
+  }
+  return null;
 }
 
 async function imageResponse(request, ctx) {
