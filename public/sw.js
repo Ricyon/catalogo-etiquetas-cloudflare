@@ -1,5 +1,5 @@
-const SHELL_CACHE = "catalogo-etiquetas-shell-v3";
-const SHELL = ["/", "/index.html", "/styles.css", "/bootstrap.js", "/app.js", "/manifest.webmanifest"];
+const SHELL_CACHE = "catalogo-insumos-shell-v1";
+const SHELL = ["/", "/index.html", "/styles.css", "/categories.css", "/bootstrap.js", "/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -22,7 +22,6 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname === "/api/catalogo") {
@@ -30,9 +29,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/img/")) {
-    return;
-  }
+  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/img/")) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
