@@ -1,9 +1,9 @@
 {
-  "name": "Catálogo de Etiquetas — Almoxarifado",
-  "short_name": "Etiquetas",
+  "name": "Catálogo de Insumos — Almoxarifado",
+  "short_name": "Insumos",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f7fa",
   "theme_color": "#00549f",
-  "description": "Catálogo de etiquetas do Almoxarifado / Suprimentos."
+  "description": "Catálogo de materiais e insumos do Almoxarifado / Suprimentos."
 }
