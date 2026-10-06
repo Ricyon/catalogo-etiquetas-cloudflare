@@ -9,7 +9,8 @@
     "run_worker_first": ["/api/*", "/img/*"]
   },
   "vars": {
-    "GOOGLE_SHEET_ID": "10q1f5tMWkl7r5ycvQQZDQyEKMjf9-CgjLh9BD42caxE",
+    "GOOGLE_SHEET_ID": "1z8Rl_iuWxS2r2Oq1dQG1Na7g4XGcWfZH",
+    "GOOGLE_SHEET_GID": "1966383603",
     "GOOGLE_SHEET_NAME": "Base Materiais",
     "GOOGLE_SHEET_FALLBACK_NAME": "Base etiquetas",
     "CATALOG_CACHE_SECONDS": "120"
