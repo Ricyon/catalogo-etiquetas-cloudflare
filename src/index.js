@@ -28,7 +28,7 @@ export default {
         return json({
           success: true,
           app: "Catálogo de Insumos",
-          preferredSheet: env.GOOGLE_SHEET_NAME || "Base materiais",
+          preferredSheet: env.GOOGLE_SHEET_NAME || "Base Materiais",
           fallbackSheet: env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas"
         }, 200, { "cache-control": "no-store" });
       }
@@ -61,7 +61,7 @@ export default {
 async function catalogResponse(request, env, ctx) {
   const url = new URL(request.url);
   const sheetId = String(env.GOOGLE_SHEET_ID || "").trim();
-  const preferredSheet = String(env.GOOGLE_SHEET_NAME || "Base materiais").trim();
+  const preferredSheet = String(env.GOOGLE_SHEET_NAME || "Base Materiais").trim();
   const fallbackSheet = String(env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas").trim();
   const ttl = clampInt(env.CATALOG_CACHE_SECONDS, 30, 600, 120);
   const fresh = url.searchParams.get("fresh") === "1";
@@ -84,7 +84,7 @@ async function catalogResponse(request, env, ctx) {
   if (!loaded) {
     return json({
       success:false,
-      error:"Não foi possível ler a base de materiais. Confirme se a planilha está pública para leitura e se existe a aba Base materiais (ou Base etiquetas durante a migração)."
+      error:"Não foi possível ler a base de materiais. Confirme se a planilha está pública para leitura e se existe a aba Base Materiais (ou Base etiquetas durante a migração)."
     }, 502, {"cache-control":"no-store"});
   }
 
