@@ -28,6 +28,8 @@ export default {
         return json({
           success: true,
           app: "Catálogo de Insumos",
+          spreadsheetId: env.GOOGLE_SHEET_ID || "",
+          gid: env.GOOGLE_SHEET_GID || "",
           preferredSheet: env.GOOGLE_SHEET_NAME || "Base Materiais",
           fallbackSheet: env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas"
         }, 200, { "cache-control": "no-store" });
@@ -61,6 +63,7 @@ export default {
 async function catalogResponse(request, env, ctx) {
   const url = new URL(request.url);
   const sheetId = String(env.GOOGLE_SHEET_ID || "").trim();
+  const sheetGid = String(env.GOOGLE_SHEET_GID || "").trim();
   const preferredSheet = String(env.GOOGLE_SHEET_NAME || "Base Materiais").trim();
   const fallbackSheet = String(env.GOOGLE_SHEET_FALLBACK_NAME || "Base etiquetas").trim();
   const ttl = clampInt(env.CATALOG_CACHE_SECONDS, 30, 600, 120);
@@ -79,17 +82,17 @@ async function catalogResponse(request, env, ctx) {
   }
 
   const candidates = [...new Set([preferredSheet, fallbackSheet].filter(Boolean))];
-  const loaded = await loadCatalogSheet(sheetId, candidates);
+  const loaded = await loadCatalogSheet(sheetId, sheetGid, candidates);
 
   if (!loaded) {
     return json({
       success:false,
-      error:"Não foi possível ler a base de materiais. Confirme se a planilha está pública para leitura e se existe a aba Base Materiais (ou Base etiquetas durante a migração)."
+      error:"Não foi possível ler a nova base de materiais. Confirme se a planilha está compartilhada para leitura por link."
     }, 502, {"cache-control":"no-store"});
   }
 
   const { table, sheetName, idx } = loaded;
-  const defaultCategory = normalize(sheetName).includes("etiqueta") ? "Etiquetas" : "Sem categoria";
+  const defaultCategory = "Etiquetas";
   const data = [];
 
   for (const row of table.rows) {
@@ -131,18 +134,34 @@ async function catalogResponse(request, env, ctx) {
   return response;
 }
 
-async function loadCatalogSheet(sheetId, candidates) {
-  for (const sheetName of candidates) {
-    try {
-      const googleUrl =
-        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}` +
-        `/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
+async function loadCatalogSheet(sheetId, sheetGid, candidates) {
+  const sources = [];
 
-      const upstream = await fetch(googleUrl, {
+  if (/^\d+$/.test(sheetGid)) {
+    sources.push({
+      label: `gid:${sheetGid}`,
+      url:
+        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}` +
+        `/gviz/tq?tqx=out:json&headers=1&gid=${encodeURIComponent(sheetGid)}`
+    });
+  }
+
+  for (const sheetName of candidates) {
+    sources.push({
+      label: sheetName,
+      url:
+        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}` +
+        `/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`
+    });
+  }
+
+  for (const source of sources) {
+    try {
+      const upstream = await fetch(source.url, {
         redirect:"follow",
         headers:{
           "accept":"application/json,text/plain,*/*",
-          "user-agent":"CatalogoInsumosCloudflare/1.0"
+          "user-agent":"CatalogoInsumosCloudflare/1.1"
         }
       });
 
@@ -165,11 +184,12 @@ async function loadCatalogSheet(sheetId, candidates) {
       }
 
       if (idx.codigo < 0 || idx.descricao < 0) continue;
-      return { table, sheetName, idx };
+      return { table, sheetName: source.label, idx };
     } catch {
-      // Tenta a próxima aba configurada.
+      // Tenta a próxima referência configurada.
     }
   }
+
   return null;
 }
 
