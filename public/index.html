@@ -8,7 +8,6 @@
   <title>Catálogo de Insumos | Almoxarifado</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/categories.css">
 </head>
 <body>
   <div id="loader" class="loader">
@@ -18,97 +17,83 @@
 
   <div id="app" hidden>
     <header class="topbar">
-      <button class="brand" type="button" data-action="home" aria-label="Ir para início">
+      <button class="brand" type="button" data-action="home" aria-label="Ir para a pesquisa">
         <span class="brand-mark">H</span>
-        <span>
+        <span class="brand-copy">
           <strong>Catálogo de Insumos</strong>
           <small>Almoxarifado · Suprimentos</small>
         </span>
       </button>
 
-      <div class="top-actions">
-        <span id="sync-status" class="sync-status">Base local</span>
-        <button id="refresh-btn" class="icon-btn" type="button" title="Atualizar catálogo" aria-label="Atualizar catálogo">↻</button>
-      </div>
+      <nav class="nav-actions" aria-label="Navegação principal">
+        <button class="nav-btn active" id="nav-home" type="button" data-action="home">Pesquisar</button>
+        <button class="nav-btn" id="nav-catalog" type="button" data-action="catalog">Catálogo</button>
+        <button id="refresh-btn" class="refresh-btn" type="button" title="Atualizar catálogo" aria-label="Atualizar catálogo">↻</button>
+      </nav>
     </header>
 
     <main>
       <section id="view-home" class="view active">
-        <div class="hero">
-          <div class="hero-copy">
-            <span class="eyebrow">CONSULTA RÁPIDA</span>
-            <h1>Encontre o material certo em segundos.</h1>
-            <p>Pesquise pelo código, descrição ou categoria do insumo.</p>
+        <div class="search-screen">
+          <div class="search-box">
+            <span class="search-kicker">ALMOXARIFADO · SUPRIMENTOS</span>
+            <h1>Catálogo de Insumos</h1>
+            <p>Digite o código ou a descrição do material.</p>
 
-            <div class="hero-search">
-              <span aria-hidden="true">⌕</span>
-              <input id="home-search" type="search" placeholder="Ex.: INCO192960, etiqueta ou HERING BRASIL" autocomplete="off" spellcheck="false">
+            <div class="main-search">
+              <span class="search-icon" aria-hidden="true">⌕</span>
+              <input
+                id="home-search"
+                type="search"
+                placeholder="Ex.: INCO192960 ou HERING BRASIL"
+                autocomplete="off"
+                spellcheck="false"
+              >
               <button id="home-search-btn" type="button">Pesquisar</button>
             </div>
 
-            <div class="hero-links">
-              <button type="button" data-action="catalog">Ver catálogo completo</button>
-              <span id="home-total"></span>
-            </div>
-          </div>
+            <button class="catalog-link" type="button" data-action="catalog">
+              Ver catálogo completo
+            </button>
 
-          <div class="hero-panel" aria-hidden="true">
-            <div class="hero-card mini-card-1"></div>
-            <div class="hero-card mini-card-2"></div>
-            <div class="hero-card mini-card-3"></div>
-            <div class="hero-panel-copy">
-              <strong>Um catálogo para todos os insumos</strong>
-              <span>Novas categorias aparecem automaticamente conforme a base cresce.</span>
+            <div class="home-meta">
+              <span id="home-total"></span>
+              <span aria-hidden="true">•</span>
+              <span id="home-categories-count"></span>
             </div>
           </div>
         </div>
-
-        <section class="quick-section">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">CATEGORIAS</span>
-              <h2>Tipos de materiais</h2>
-            </div>
-            <button class="link-btn" type="button" data-action="catalog">Ver todos →</button>
-          </div>
-          <div id="home-categories" class="category-grid"></div>
-        </section>
-
-        <section class="quick-section">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">MATERIAIS</span>
-              <h2>Materiais cadastrados</h2>
-            </div>
-            <button class="link-btn" type="button" data-action="catalog">Abrir catálogo →</button>
-          </div>
-          <div id="home-grid" class="grid"></div>
-        </section>
       </section>
 
       <section id="view-catalog" class="view">
-        <div class="page-head">
+        <div class="catalog-head">
           <div>
-            <span class="eyebrow">CATÁLOGO</span>
-            <h1 id="catalog-title">Todos os materiais</h1>
-            <p id="catalog-subtitle">Consulte por código, descrição ou categoria.</p>
+            <h1>Catálogo de materiais</h1>
+            <p>Pesquise e filtre os insumos cadastrados.</p>
           </div>
-          <button class="secondary-btn" type="button" data-action="home">← Voltar ao início</button>
         </div>
 
         <div class="catalog-toolbar">
-          <div class="catalog-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="catalog-search" type="search" placeholder="Pesquisar materiais..." autocomplete="off" spellcheck="false">
-            <button id="clear-catalog-search" type="button" aria-label="Limpar busca">×</button>
-          </div>
+          <label class="toolbar-field search-field">
+            <span>Pesquisar</span>
+            <div class="input-shell">
+              <span aria-hidden="true">⌕</span>
+              <input id="catalog-search" type="search" placeholder="Código ou descrição" autocomplete="off" spellcheck="false">
+              <button id="clear-catalog-search" type="button" aria-label="Limpar pesquisa">×</button>
+            </div>
+          </label>
 
-          <div class="pills" id="category-pills" aria-label="Filtrar por categoria"></div>
+          <label class="toolbar-field category-field">
+            <span>Categoria</span>
+            <select id="category-filter" aria-label="Filtrar por categoria">
+              <option value="">Todas as categorias</option>
+            </select>
+          </label>
         </div>
 
-        <div class="results-row">
+        <div class="catalog-summary">
           <span id="results-count"></span>
-          <span class="network-note">As imagens só carregam quando entram na tela.</span>
+          <span id="sync-status" class="sync-status">Base local</span>
         </div>
 
         <div id="catalog-grid" class="grid"></div>
@@ -122,43 +107,6 @@
           <button id="load-more" class="secondary-btn" type="button" hidden>Carregar mais</button>
         </div>
       </section>
-
-      <section id="view-details" class="view">
-        <button class="back-link" type="button" data-action="back-catalog">← Voltar ao catálogo</button>
-
-        <div class="detail-layout">
-          <section class="detail-images">
-            <article class="detail-image-card">
-              <span class="image-label">IMAGEM 1</span>
-              <button class="image-button" type="button" data-image-slot="1">
-                <img id="detail-image-1" alt="" decoding="async">
-                <span class="zoom-hint">Toque para ampliar</span>
-              </button>
-            </article>
-
-            <article class="detail-image-card">
-              <span class="image-label">IMAGEM 2</span>
-              <button class="image-button" type="button" data-image-slot="2">
-                <img id="detail-image-2" alt="" decoding="async">
-                <span class="zoom-hint">Toque para ampliar</span>
-              </button>
-            </article>
-          </section>
-
-          <section class="detail-info">
-            <span id="detail-category" class="badge">Material</span>
-            <h1 id="detail-code">—</h1>
-            <p id="detail-description">—</p>
-
-            <dl class="detail-list">
-              <div><dt>Categoria</dt><dd id="detail-category-text">—</dd></div>
-              <div><dt>Unidade de medida</dt><dd id="detail-um">—</dd></div>
-              <div><dt>Data de inclusão</dt><dd id="detail-date">—</dd></div>
-              <div><dt>Responsável</dt><dd id="detail-owner">—</dd></div>
-            </dl>
-          </section>
-        </div>
-      </section>
     </main>
 
     <footer>
@@ -167,8 +115,42 @@
     </footer>
   </div>
 
-  <div id="image-modal" class="modal" hidden>
-    <button id="modal-close" class="modal-close" type="button" aria-label="Fechar">×</button>
+  <div id="detail-modal" class="detail-modal" hidden>
+    <div class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-code">
+      <div class="detail-top">
+        <div>
+          <span id="detail-category" class="badge">Material</span>
+          <h2 id="detail-code">—</h2>
+          <p id="detail-description">—</p>
+        </div>
+        <button id="detail-close" class="close-btn" type="button" aria-label="Fechar detalhes">×</button>
+      </div>
+
+      <div class="detail-content">
+        <div class="detail-images">
+          <button class="detail-image-button" type="button" data-image-slot="1">
+            <span>Imagem 1</span>
+            <img id="detail-image-1" alt="" decoding="async">
+          </button>
+
+          <button class="detail-image-button" type="button" data-image-slot="2">
+            <span>Imagem 2</span>
+            <img id="detail-image-2" alt="" decoding="async">
+          </button>
+        </div>
+
+        <dl class="detail-list">
+          <div><dt>Categoria</dt><dd id="detail-category-text">—</dd></div>
+          <div><dt>Unidade de medida</dt><dd id="detail-um">—</dd></div>
+          <div><dt>Data de inclusão</dt><dd id="detail-date">—</dd></div>
+          <div><dt>Responsável</dt><dd id="detail-owner">—</dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div id="image-modal" class="image-modal" hidden>
+    <button id="modal-close" class="image-modal-close" type="button" aria-label="Fechar imagem">×</button>
     <img id="modal-image" alt="Imagem ampliada">
   </div>
 
