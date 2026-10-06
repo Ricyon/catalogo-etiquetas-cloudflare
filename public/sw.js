@@ -1,5 +1,5 @@
-const SHELL_CACHE = "catalogo-insumos-shell-v1";
-const SHELL = ["/", "/index.html", "/styles.css", "/categories.css", "/bootstrap.js", "/app.js", "/manifest.webmanifest"];
+const SHELL_CACHE = "catalogo-insumos-shell-v2";
+const SHELL = ["/", "/index.html", "/styles.css", "/bootstrap.js", "/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,6 +34,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
+
       return fetch(request).then((response) => {
         if (response.ok) {
           const copy = response.clone();
@@ -47,6 +48,7 @@ self.addEventListener("fetch", (event) => {
 
 async function networkFirstCatalog(request) {
   const cache = await caches.open(SHELL_CACHE);
+
   try {
     const response = await fetch(request);
     if (response.ok) cache.put(request, response.clone());
